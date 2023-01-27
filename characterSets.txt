@@ -1,0 +1,4 @@
+Name;Characters (White -> Black)
+default;$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\|()1{}[]?-_+~<>i!lI;:,"^`'. 
+pixel;█▓▒░ 
+default10;@%#*+=-:. 

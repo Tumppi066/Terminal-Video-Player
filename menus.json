@@ -1,0 +1,40 @@
+{
+    "Terminal Video Player":{
+
+        "Start" : {
+            "Select File" : {
+                "type" : "list",
+                "options" : [
+                    "files",
+                    "allowedFiles.txt"
+                ]
+            }
+        },
+
+        "Options" : {
+            "Show Original Video" : {
+                "type" : "boolean"
+            },
+            "FPS" : {
+                "type" : "number"
+            },
+            "Width" : {
+                "type" : "number"
+            },
+            "Style" : {
+                "Use Traditional Characters" : {
+                    "type" : "boolean"
+                },
+                "Character Set" : {
+                    "type" : "list",
+                    "options" : [
+                        "files",
+                        "characterSets.txt"
+                    ]
+                }
+            }
+        }
+
+    }
+
+}
