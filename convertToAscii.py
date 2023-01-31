@@ -56,7 +56,7 @@ def convertToAsciiTraditional(InImage, cols=120, onSymbol="", offSymbol="", char
             # And invert it
             index = len(asciiValues) - 1 - index
 
-            colorIndex = 232 + math.floor(grayscale * (24-1) / 255)
+            colorIndex = 232 + math.floor(grayscale * (23) / 255)
 
             # Append the ascii character to the string
             asciiImage += f"\x1b[38;5;{colorIndex}m" + asciiValues[index] + "\x1b[0m"
@@ -126,13 +126,15 @@ def convertToAscii(image, percentage, cols=120, color=False):
 
             grayscale = pixel
             # Clamp the number to the 24 colors
-            index = 232 + math.floor(grayscale * (24-1) / 255)
+            index = 232 + math.floor(grayscale * (23) / 255)
 
             # Append the ascii character to the string
             asciiImage += f"\x1b[38;5;{index}m" + "█" + "\x1b[0m"
 
         # Add a newline and border at the end of each row
         asciiImage += "│\n"
+
+    asciiImage.replace("\uFFFD", "")
 
     # Add an extra row of borders at the bottom
     asciiImage += "\x1b[38;5;28m" + "└" + "\x1b[0m"

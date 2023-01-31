@@ -15,6 +15,7 @@ def Information():
 
     os.system("cls")
 
+
     show = input("""
     ┌─ Show raw video (default : n)
     │
