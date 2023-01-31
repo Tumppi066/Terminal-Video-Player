@@ -1,4 +1,4 @@
-# Terminal-Media-Player
+# Terminal-Video-Player
  
 ![](ExampleImage.jpg)
 
