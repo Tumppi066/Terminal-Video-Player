@@ -1,5 +1,7 @@
 # Terminal-Media-Player
  
+![](ExampleImage.jpg)
+
  This was a school project. I have no intention of maintaining the codebase, but it is simple enough it should not be a problem.
  
  # Usage
