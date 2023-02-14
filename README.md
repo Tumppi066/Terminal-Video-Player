@@ -2,7 +2,7 @@
  
 ![](ExampleImage.jpg)
 
- This was a school project. I have no intention of maintaining the codebase, but it is simple enough it should not be a problem.
+ This was a school project, the code is not clean, nor is it efficient. I have no intention of maintaining the codebase, but it is simple enough it should not be a problem.
  
  # Usage
  
