@@ -130,9 +130,11 @@ while True:
 
     
     # Clear the console and print the current frame
-    os.system('cls' if os.name == 'nt' else 'clear')
+    sys.stdout.write("\033[0;0H")
+    # os.system('cls' if os.name == 'nt' else 'clear')
     sys.stdout.write(extraInfo + "\n")
-    sys.stdout.write(img)
+    sys.stdout.write(f"{img}")
+
 
     # Skip frames to make sure we are playing at the correct fps
     # Calculate the frame we should be at

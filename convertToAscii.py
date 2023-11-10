@@ -122,8 +122,6 @@ def convertToAscii(image, percentage, cols=120, color=False):
         for x in range(width-1, 0, -1):
             # Get the pixel value at (x, y)
             pixel = image[x][y]
-            # Get the grayscale value of the pixel
-            # WHY DOES (255+255+255)/3 = 84?????? PYTHON PLZ
 
             if color:
                 if pixel[0] == lastPixel[0] and pixel[1] == lastPixel[1] and pixel[2] == lastPixel[2]:
