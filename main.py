@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import cv2 # CV2 Is used to read the video file
 import time # Time is used to sync the frames correctly
-from convertToAscii import convertToAscii, convertToAsciiTraditional # Import the convertToAscii function
+from convertToAscii import convertToAscii # Import the convertToAscii function
 import os # OS is used to clear the console
 import mainMenu as menu # Import the main menu
 import sys
 import codecs
 import keyboard
-
+import difflib
 
 # Ask the user for the video file name, fps and width
 video, fps, width, style, show, useTraditional, color = menu.Information()
@@ -43,6 +43,13 @@ paused = False
 
 offset = 0
 
+startPause = 0
+endPause = 0
+
+lastFrame = None
+
+lastSecondFPSs = [0,0,0,0]
+
 while True:
 
     # Detect left and right keypresses to skip / revind 5s of the video
@@ -72,12 +79,34 @@ while True:
         inputTimer = time.time()
         print("Paused" if paused else "Playing")
         
+    # If we press esc quit
+    if keyboard.is_pressed("esc"):
+        break
+        
+    # Use r to reset back to frame 1 (and pause the video)
+    if keyboard.is_pressed("r"):
+        frameNumber = 1
+        offset = 0
+        paused = True
+        
     if paused:
+        # Lower the offset to compensate for the time we are paused
+        if startPause == 0:
+            startPause = time.time()
         continue    
+    else:
+        if startPause != 0:
+            endPause = time.time()
+            offset -= endPause - startPause
+            startPause = 0
+            endPause = 0
 
     # Read the next video frame and increment the frame number
     success, img = video.read()
     frameNumber += 1
+    
+    if frameNumber == 0:
+        frameNumber = 1
 
     
     # If the video is over, break the loop
@@ -95,16 +124,12 @@ while True:
     # - Skipped frames
     extraInfo += f"\033[91m{skippedFrames} ({format(round(skippedFrames/frameNumber*100, 2), '.2f')}%) skipped frames\033[97m)"
     # - FPS
-    extraInfo += f" | FPS: {format(round(Fps, 2), '.2f')} "
+    extraInfo += f" | FPS: {format(round(Fps, 0), '.0f')} "
     # Print the controls
-    extraInfo += f" | Use CTRL+C to exit "
+    extraInfo += f" | Use ESC to exit (arrow keys for control) "
     # Merge extra info with
     # the box characters
-    while len(extraInfo)-8 < width+2: 
-        extraInfo += "─"
     
-    if "─" in extraInfo:
-        extraInfo += "┐"
     
 
     # Convert to B&W
@@ -119,22 +144,55 @@ while True:
         
     
     # Convert the current video frame to ASCII
-    if style == "custom" and useTraditional == "y":
-        img = convertToAsciiTraditional(img, width, onSymbol=onPixel, offSymbol=offPixel)
-    elif useTraditional == "y":
-        img = convertToAsciiTraditional(img, width, characterSet=style)
-    elif color == "y":
+    convertTimeStart = time.time()
+    if color == "y":
         img = convertToAscii(img, percentage, width, color=True)
     else:
         img = convertToAscii(img, percentage, width)
-
+    convertTimeEnd = time.time()
     
+    writeTimeStart = time.time()
     # Clear the console and print the current frame
-    sys.stdout.write("\033[0;0H")
-    # os.system('cls' if os.name == 'nt' else 'clear')
-    sys.stdout.write(extraInfo + "\n")
-    sys.stdout.write(f"{img}")
+    if lastFrame is None:
+        sys.stdout.write("\033[0;0H")
+        sys.stdout.write(extraInfo + "\n")
+        sys.stdout.write(f"{img}")
+        lastFrame = img.split("\n")
+    else:
+        # Check each line, and only update the parts that have changed
+        # This is to reduce flickering and improve performance
+        lines = img.split("\n")
+        write = sys.stdout.write
+        len_lastLines = len(lastFrame)
+        len_lines = len(lines)
+        for i in range(len_lines):
+            # Check if the line has changed and only update those parts
+            if i < len_lastLines and lines[i] != lastFrame[i]:
+                write("\033[" + str(i+2) + ";0H")
+                write(lines[i])
+            else:
+                # The scale has probably been changed
+                write("\033[2;0H")
+                write(f"{img}")
+                break
+        lastFrame = lines
+            
+    
+    
+    lastFrame = img
+    writeTimeEnd = time.time()
+    
+    # Print the times
+    extraInfo += (f"| Convert time: {format(round(convertTimeEnd - convertTimeStart, 4), '.4f')}s | Write time: {format(round(writeTimeEnd - writeTimeStart, 4), '.4f')}s ")
 
+    while len(extraInfo)-8 < width+2: 
+        extraInfo += "─"
+    
+    if "─" in extraInfo:
+        extraInfo += "┐"
+
+    sys.stdout.write("\033[0;0H")
+    sys.stdout.write(extraInfo + "\n")
 
     # Skip frames to make sure we are playing at the correct fps
     # Calculate the frame we should be at
@@ -157,10 +215,12 @@ while True:
 
 
     # Calculate the fps
-    if time.time() - lastSecondTime > 1:
-        Fps = framesLastSecond
+    if time.time() - lastSecondTime > 0.2:
+        lastSecondFPSs.append(framesLastSecond * 5)
+        lastSecondFPSs.pop(0)
         framesLastSecond = 0
         lastSecondTime = time.time()
+        Fps = sum(lastSecondFPSs) / len(lastSecondFPSs)
     else:
         framesLastSecond += 1
     # If the difference is less than 0, then we need to wait

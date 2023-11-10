@@ -47,14 +47,14 @@ def Information():
     Clear()
 
     color = input("""
-    ┌─ Color (default : n)
+    ┌─ Color (default : y)
     │
     │  This will print out 8 bit colors
     │
     ╰─> """)
 
     if color == "":
-        color = "n"
+        color = "y"
 
     Clear()
 
