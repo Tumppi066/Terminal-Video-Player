@@ -6,6 +6,7 @@ import os # OS is used to clear the console
 import mainMenu as menu # Import the main menu
 import sys
 import codecs
+import keyboard
 
 
 # Ask the user for the video file name, fps and width
@@ -35,7 +36,44 @@ startTime = time.time()
 framesLastSecond = 0
 lastSecondTime = time.time()
 
+inputTimer = time.time()
+inputPadding = 0.1 # seconds
+
+paused = False
+
+offset = 0
+
 while True:
+
+    # Detect left and right keypresses to skip / revind 5s of the video
+    if keyboard.is_pressed("left") and inputTimer + inputPadding < time.time():
+        offset -= .5
+
+
+    if keyboard.is_pressed("right") and inputTimer + inputPadding < time.time():
+        offset += .5
+
+
+    video.set(cv2.CAP_PROP_POS_FRAMES, frameNumber)
+
+
+    # Detect the up and down keypresses to increase / decrease the width
+    if keyboard.is_pressed("up") and inputTimer + inputPadding < time.time():
+        width += 5
+        inputTimer = time.time()
+        
+    if keyboard.is_pressed("down") and inputTimer + inputPadding < time.time():
+        width -= 5
+        inputTimer = time.time()
+        
+    # Detect the space keypress to pause / play the video
+    if keyboard.is_pressed("space") and inputTimer + inputPadding < time.time():
+        paused = not paused
+        inputTimer = time.time()
+        print("Paused" if paused else "Playing")
+        
+    if paused:
+        continue    
 
     # Read the next video frame and increment the frame number
     success, img = video.read()
@@ -98,19 +136,23 @@ while True:
 
     # Skip frames to make sure we are playing at the correct fps
     # Calculate the frame we should be at
-    frameWeShouldBeAt = round((time.time() - startTime) * fps)
+    frameWeShouldBeAt = round((time.time() - startTime + offset) * fps)
     # Calculate the difference between the frame we should be at and the frame we are at
     difference = frameWeShouldBeAt - frameNumber
     # If the difference is greater than 0, then we need to skip frames
     while difference > 0:
-        # Read the next frame
-        success, img = video.read()
         # Increment the frame number
         frameNumber += 1
         # Decrement the difference
         difference -= 1
         # Increment the skipped frames
         skippedFrames += 1
+    while difference < 0:
+        # Increment the frame number
+        frameNumber -= 1
+        # Decrement the difference
+        difference += 1
+
 
     # Calculate the fps
     if time.time() - lastSecondTime > 1:
