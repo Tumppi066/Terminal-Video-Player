@@ -1,7 +1,10 @@
 import os
 
 def Information():
-    os.system("cls")
+    def Clear():
+        os.system("cls" if os.name == "nt" else "clear")
+
+    Clear()
 
     name = input("""
     ┌─ Video file name (default : video.mp4)
@@ -13,7 +16,7 @@ def Information():
     if name == "":
         name = "video.mp4"
 
-    os.system("cls")
+    Clear()
 
 
     show = input("""
@@ -26,7 +29,7 @@ def Information():
     if show == "":
         show = "y"
 
-    os.system("cls")
+    Clear()
 
     fps = input("""
     ┌─ Video fps (default : 30)
@@ -41,7 +44,7 @@ def Information():
     else:
         fps = int(fps)
 
-    os.system("cls")
+    Clear()
 
     color = input("""
     ┌─ Color (default : n)
@@ -53,7 +56,7 @@ def Information():
     if color == "":
         color = "n"
 
-    os.system("cls")
+    Clear()
 
     width = input("""
     ┌─ Viewport width (default : 120)
@@ -68,7 +71,7 @@ def Information():
     else:
         width = int(width)
 
-    os.system("cls")
+    Clear()
 
     useTraditional = input("""
     ┌─ Use traditional characters (default : n)
@@ -81,7 +84,7 @@ def Information():
     if useTraditional == "":
         useTraditional = "n"
 
-    os.system("cls")
+    Clear()
 
     if useTraditional == "y":
 

@@ -32,6 +32,9 @@ skippedFrames = 1
 length = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 startTime = time.time()
 
+framesLastSecond = 0
+lastSecondTime = time.time()
+
 while True:
 
     # Read the next video frame and increment the frame number
@@ -41,13 +44,13 @@ while True:
     
     # If the video is over, break the loop
     if(success == False): 
-        os.system("cls")
+        os.system("cls" if os.name == "nt" else "clear")
         print("> Video file not found / video ended")
         break
     
     
     # Print the current time
-    extraInfo = f"┌ Frame: {frameNumber}/{length} | {format(round(frameNumber/30, 2), '.2f')}s | "
+    extraInfo = f"┌ Frame: {frameNumber}/{length} | {format(round(frameNumber/fps, 2), '.2f')}s | "
     # - Frame number
     percentage = round(frameNumber/length*100, 2)
     extraInfo += f"{format(percentage, '.2f')}% | "
@@ -89,7 +92,7 @@ while True:
 
     
     # Clear the console and print the current frame
-    os.system('cls')
+    os.system('cls' if os.name == 'nt' else 'clear')
     sys.stdout.write(extraInfo + "\n")
     sys.stdout.write(img)
 
@@ -110,7 +113,12 @@ while True:
         skippedFrames += 1
 
     # Calculate the fps
-    Fps = (frameNumber-skippedFrames) / (time.time() - startTime)
+    if time.time() - lastSecondTime > 1:
+        Fps = framesLastSecond
+        framesLastSecond = 0
+        lastSecondTime = time.time()
+    else:
+        framesLastSecond += 1
     # If the difference is less than 0, then we need to wait
     if difference < 0:
         time.sleep(-difference/fps)

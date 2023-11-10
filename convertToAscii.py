@@ -39,6 +39,8 @@ def convertToAsciiTraditional(InImage, cols=120, onSymbol="", offSymbol="", char
     # Initialize the ascii image
     asciiImage = ""
 
+    lastChar = ""
+    lastValue = -1
 
     # Loop through each row in the image
     for y in range(height-1):
@@ -50,6 +52,11 @@ def convertToAsciiTraditional(InImage, cols=120, onSymbol="", offSymbol="", char
             pixel = image[x][y]
             # Get the grayscale value of the pixel
             grayscale = pixel
+            
+            # Optimize the image by not checking the character for repeated pixels
+            if grayscale == lastValue:
+                asciiImage += lastChar
+                continue
 
             # Then clamp that 255 to 69
             index = math.floor(grayscale * (len(asciiValues) - 1) / 255)
@@ -60,6 +67,8 @@ def convertToAsciiTraditional(InImage, cols=120, onSymbol="", offSymbol="", char
 
             # Append the ascii character to the string
             asciiImage += f"\x1b[38;5;{colorIndex}m" + asciiValues[index] + "\x1b[0m"
+            lastChar = f"\x1b[38;5;{colorIndex}m" + asciiValues[index] + "\x1b[0m"
+            lastValue = grayscale
 
         # Add a newline and border at the end of each row
         asciiImage += "│\n"
@@ -73,13 +82,6 @@ def convertToAsciiTraditional(InImage, cols=120, onSymbol="", offSymbol="", char
     # Return the image back
     return asciiImage
 
-
-def rgbTo8bit(rgb):
-    red = int((rgb[0] * 8) / 256)
-    green = int((rgb[1] * 8) / 256)
-    blue = int((rgb[2] * 4) / 256)
-
-    return (red << 5) | (green << 2) | blue
 
 
 # This function will convert a PIL frame to ascii text
@@ -108,6 +110,10 @@ def convertToAscii(image, percentage, cols=120, color=False):
     # Initialize the ascii image
     asciiImage = ""
 
+
+    lastPixel = [-1,-1,-1] if color else -1
+    lastChar = ""
+
     # Loop through each row in the image
     for y in range(height-1):
         # Add a border at the start of each row
@@ -120,8 +126,18 @@ def convertToAscii(image, percentage, cols=120, color=False):
             # WHY DOES (255+255+255)/3 = 84?????? PYTHON PLZ
 
             if color:
-                index = rgbTo8bit(pixel)
-                asciiImage += f"\x1b[38;5;{index}m" + "█" + "\x1b[0m"
+                if pixel[0] == lastPixel[0] and pixel[1] == lastPixel[1] and pixel[2] == lastPixel[2]:
+                    asciiImage += lastChar
+                    continue
+            else:
+                if pixel == lastPixel:
+                    asciiImage += lastChar
+                    continue
+
+            if color:
+                asciiImage += f"\x1b[38;2;{pixel[0]};{pixel[1]};{pixel[2]}m" + "█" + "\x1b[0m"
+                lastPixel = pixel
+                lastChar = f"\x1b[38;2;{pixel[0]};{pixel[1]};{pixel[2]}m" + "█" + "\x1b[0m"
                 continue    
 
             grayscale = pixel
@@ -130,6 +146,8 @@ def convertToAscii(image, percentage, cols=120, color=False):
 
             # Append the ascii character to the string
             asciiImage += f"\x1b[38;5;{index}m" + "█" + "\x1b[0m"
+            lastPixel = pixel
+            lastChar = f"\x1b[38;5;{index}m" + "█" + "\x1b[0m"
 
         # Add a newline and border at the end of each row
         asciiImage += "│\n"
