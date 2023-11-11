@@ -70,10 +70,9 @@ def convertToAscii(image, percentage, cols=120, color=False):
             else:
                 grayscale = pixel
                 index = int(pixelIndexes[grayscale])
-                character = asciiValues[index]
-                row.append(character)
+                row.append(asciiValues[index])
                 lastPixel = pixel
-                lastChar = character
+                lastChar = asciiValues[index]
 
         row.append("│\n")
         asciiImage.append(''.join(row))
