@@ -8,9 +8,10 @@ import sys
 import codecs
 import keyboard
 import difflib
+from ffpyplayer.player import MediaPlayer
 
 # Ask the user for the video file name, fps and width
-video, fps, width, style, show, useTraditional, color = menu.Information()
+videoPath, fps, width, style, show, useTraditional, color = menu.Information()
 
 
 # If the style is custom, parse the characters
@@ -21,7 +22,8 @@ if ";" in style:
 
 
 # Read the video
-video = cv2.VideoCapture(video)
+video = cv2.VideoCapture(videoPath)
+player = MediaPlayer(videoPath, ff_opts={'volume':0.1})
 success, img = video.read()
 
 # Initialize variables
@@ -52,17 +54,21 @@ lastSecondFPSs = [0,0,0,0]
 
 while True:
 
+    fastForwarded = False
+
     # Detect left and right keypresses to skip / revind 5s of the video
     if keyboard.is_pressed("left") and inputTimer + inputPadding < time.time():
         offset -= .5
+        fastForwarded = True
 
 
     if keyboard.is_pressed("right") and inputTimer + inputPadding < time.time():
         offset += .5
+        fastForwarded = True
 
-
+    # Seek the video and audio to the correct frame
     video.set(cv2.CAP_PROP_POS_FRAMES, frameNumber)
-
+    
 
     # Detect the up and down keypresses to increase / decrease the width
     if keyboard.is_pressed("up") and inputTimer + inputPadding < time.time():
@@ -93,6 +99,7 @@ while True:
         # Lower the offset to compensate for the time we are paused
         if startPause == 0:
             startPause = time.time()
+            player.set_pause(True)
         continue    
     else:
         if startPause != 0:
@@ -100,9 +107,16 @@ while True:
             offset -= endPause - startPause
             startPause = 0
             endPause = 0
+            player.set_pause(False)
 
     # Read the next video frame and increment the frame number
     success, img = video.read()
+    audio_frame, val = player.get_frame(force_refresh=True)
+    
+    if val != 'eof' and audio_frame is not None:
+        #audio
+        ffpyplayerImage, t = audio_frame
+    
     frameNumber += 1
     
     if frameNumber == 0:
@@ -194,11 +208,22 @@ while True:
     sys.stdout.write("\033[0;0H")
     sys.stdout.write(extraInfo + "\n")
 
-    # Skip frames to make sure we are playing at the correct fps
-    # Calculate the frame we should be at
-    frameWeShouldBeAt = round((time.time() - startTime + offset) * fps)
-    # Calculate the difference between the frame we should be at and the frame we are at
+    try:
+        img, t = audio_frame
+    except:
+        continue
+    
+    # Seek the audio player to the correct frame (it takes input as seconds so we need to convert it)
+    if fastForwarded:
+        secondWeShouldBeAt = round((t + offset))
+        player.seek(secondWeShouldBeAt, relative=False, accurate=True) 
+        offset = 0
+        fastForwarded = False
+    
+    # Calculate the frame we should be at based on the current audio time
+    frameWeShouldBeAt = round((t) * fps)
     difference = frameWeShouldBeAt - frameNumber
+    
     # If the difference is greater than 0, then we need to skip frames
     while difference > 0:
         # Increment the frame number
@@ -206,7 +231,9 @@ while True:
         # Decrement the difference
         difference -= 1
         # Increment the skipped frames
-        skippedFrames += 1
+        if not fastForwarded:
+            skippedFrames += 1
+        
     while difference < 0:
         # Increment the frame number
         frameNumber -= 1
@@ -223,8 +250,5 @@ while True:
         Fps = sum(lastSecondFPSs) / len(lastSecondFPSs)
     else:
         framesLastSecond += 1
-    # If the difference is less than 0, then we need to wait
-    if difference < 0:
-        time.sleep(-difference/fps)
-
+    
     cv2.waitKey(1)
