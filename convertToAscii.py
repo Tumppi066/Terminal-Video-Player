@@ -1,6 +1,6 @@
 import math
 import cv2
-from multiprocessing import Pool
+import numpy as np
 
 availableCharacters = open("characterSets.txt", "r", encoding="utf-8").read().split("\n")
 
@@ -12,9 +12,26 @@ asciiValues = availableCharacters[-1]
 asciiValues = asciiValues[::-1]
 asciiLen = len(asciiValues)
 
+print("Precomputing values...")
+pixelIndexes = []
+for x in range(256):
+    grayscale = x
+    index = int(round(grayscale/255*(asciiLen-1), 0))
+    pixelIndexes.append(index)
+pixel_indexes = np.array(pixelIndexes)
+
+# RGB array for the color tag strings
+colorPixels = np.empty((256, 256, 256), dtype=object)
+for r in range(256):
+    for g in range(256):
+        for b in range(256):
+            colorPixels[r, g, b] = f"\x1b[38;2;{r};{g};{b}m█"
+
+
 # This function will convert a PIL frame to ascii text
 def convertToAscii(image, percentage, cols=120, color=False):
-    global asciiValues
+    localValues = asciiValues
+    localPixelIndices = pixelIndexes
 
     if color:
         width, height, colorDepth = image.shape
@@ -24,67 +41,42 @@ def convertToAscii(image, percentage, cols=120, color=False):
     aspect = height/width
     newHeight = int(cols/aspect/2)
     image = cv2.resize(image, (cols, newHeight))
-    image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
     if color:
         width, height, colorDepth = image.shape
     else:
         width, height = image.shape
 
-    asciiImage = []
-    lastPixel = [-1,-1,-1] if color else -1
-    lastChar = ""
-
-    pixelIndexes = []
+    
+    # Convert grayscale image to indexes directly using NumPy
     if not color:
-        for x in range(256):
-            grayscale = x
-            index = int(round(grayscale/255*(asciiLen-1), 0))
-            pixelIndexes.append(index)
+        indices = np.round(image.flatten() / 255 * (asciiLen - 1)).astype(int)
+        ascii_chars = np.array(list(asciiValues))[indices]  # Map indices to ASCII characters
+        asciiImage = [''.join(ascii_chars[i:i+cols]) for i in range(0, len(ascii_chars), cols)]
 
-    skip = 0
-    for y in range(height-1):
-        row = ["│"]
-        for x in range(width-1, 0, -1):
-            if skip > 0:
-                skip -= 1
-                continue
-            
-            pixel = image[x][y]
+        return "\n".join(asciiImage)
+    
 
-            if color:
-                if pixel[0] == lastPixel[0] and pixel[1] == lastPixel[1] and pixel[2] == lastPixel[2]:
-                    row[-1] = row[-1][:-4] + "█" + "\x1b[0m"
-                    continue
+    colorImage = colorPixels[image[..., 0], image[..., 1], image[..., 2]]
+
+    asciiImage = []
+    lastColor = None
+    for row in colorImage:
+        line = ""
+        for color in row:
+            if color != lastColor:
+                line += "\x1b[0m" + color
+                lastColor = color
             else:
-                if pixel == lastPixel:
-                    row.append(lastChar)
-                    continue
+                line += "█"
+        asciiImage.append(line + "\n")
 
-            if color:
-                lastChar = f"\x1b[38;2;{pixel[0]};{pixel[1]};{pixel[2]}m█\x1b[0m"
-                row.append(lastChar)
-                lastPixel = pixel
-                continue    
-
-            else:
-                grayscale = pixel
-                index = int(pixelIndexes[grayscale])
-                row.append(asciiValues[index])
-                lastPixel = pixel
-                lastChar = asciiValues[index]
-
-        row.append("│\n")
-        asciiImage.append(''.join(row))
-        lastChar = ""
-        lastPixel = [-1,-1,-1] if color else -1
-
-    asciiImage = ''.join(asciiImage).replace("\uFFFD", "")
-
+    asciiImage = ''.join(asciiImage)
     asciiImage += "\x1b[38;5;28m" + "└" + "\x1b[0m"
+    
     wasUnder = False
     count = 0
-    for x in range(width-1):
+    for x in range(height-1):
         framePercentage = (x / width) * 100
         if framePercentage < percentage:
             asciiImage += "\x1b[38;5;28m" + "─" + "\x1b[0m"
@@ -100,6 +92,7 @@ def convertToAscii(image, percentage, cols=120, color=False):
         asciiImage += "\x1b[38;5;28m" + "┤" + "\x1b[0m"
     else:
         asciiImage += "┘"
+    
     asciiImage += "\n\x1b[38;5;28m" + " " * (count - 1) + format(percentage, ".2f") + "%\x1b[0m"
 
     return asciiImage
