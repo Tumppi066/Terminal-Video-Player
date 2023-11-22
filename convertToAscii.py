@@ -77,7 +77,7 @@ def convertToAscii(image, percentage, cols=120, color=False):
     wasUnder = False
     count = 0
     for x in range(height-1):
-        framePercentage = (x / width) * 100
+        framePercentage = (x / height) * 100
         if framePercentage < percentage:
             asciiImage += "\x1b[38;5;28m" + "─" + "\x1b[0m"
             wasUnder = True

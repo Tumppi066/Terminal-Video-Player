@@ -24,6 +24,46 @@ if __name__ == "__main__":
         style = "custom"
 
 
+    def parse_subtitles(filename):
+        with open(filename, 'r', encoding="utf-8") as f:
+            lines = f.readlines()
+
+        subtitles = []
+        i = 0
+        while i < len(lines):
+            # Skip non-subtitle lines
+            if '-->' not in lines[i]:
+                i += 1
+                continue
+
+            # Parse the start and end times
+            times = lines[i].strip().split(' --> ')
+            start_time = sum(float(x) * 60 ** (2 - j) for j, x in enumerate(times[0].replace(',', '.').split(':')))
+            end_time = sum(float(x) * 60 ** (2 - j) for j, x in enumerate(times[1].replace(',', '.').split(':')))
+
+            # Parse the subtitle
+            subtitle = lines[i + 1].strip()
+
+            # Add the subtitle to the list
+            subtitles.append((subtitle, (start_time, end_time)))
+
+            i += 2
+
+        return subtitles
+
+    # Check if a subtitle file exists
+    subtitlePath = videoPath.split(".")[0] + ".srt"
+    if os.path.isfile(subtitlePath):
+        # Read the subtitles and store them in a dictionary with their start and end times
+        subtitleDict = parse_subtitles(subtitlePath)
+        for subtitle, times in subtitleDict:
+            print(f"Added subtitle: {subtitle} ({times[0]} - {times[1]}))")
+
+    try:
+        sortedSubtitles = sorted(subtitleDict, key=lambda x: x[1][0])
+    except:
+        sortedSubtitles = None
+    
     # Read the video
     video = cv2.VideoCapture(videoPath)
     player = MediaPlayer(videoPath, ff_opts={'volume':0.1})
@@ -55,6 +95,10 @@ if __name__ == "__main__":
 
     lastSecondFPSs = [0,0,0,0]
 
+    lastFps = 0
+    changedSize = 0
+    
+    currentSubtitle = None
     while True:
         fpsStartTime = time.time()
         fastForwarded = False
@@ -76,10 +120,12 @@ if __name__ == "__main__":
         # Detect the up and down keypresses to increase / decrease the width
         if keyboard.is_pressed("up") and inputTimer + inputPadding < time.time():
             width += 5
+            changedSize = 2
             inputTimer = time.time()
             
         if keyboard.is_pressed("down") and inputTimer + inputPadding < time.time():
             width -= 5
+            changedSize = 2
             inputTimer = time.time()
             
         # Detect the space keypress to pause / play the video
@@ -147,7 +193,36 @@ if __name__ == "__main__":
         # Merge extra info with
         # the box characters
         
-        
+        # Add the FPS to the video 
+        if lastFps > fps:
+            img = cv2.putText(img, f"{int(fps)}", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        else:
+            img = cv2.putText(img, f"{int(lastFps)}", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+        # Add the video dimensions to the video
+        if changedSize > 0:
+            videoWidth, videoHeight = int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            aspect = videoHeight/videoWidth
+            newHeight = int(width/aspect/2)
+            newWidth = int(width)
+            img = cv2.putText(img, f"{newWidth}x{newHeight} ({round((newWidth/videoWidth)*100, 1)}x{round((newHeight/videoHeight)*100, 1)}%)", (0, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 100, 255), 2)
+            # Reduce the changedSize variable according to the framerate
+            changedSize -= 1/fps
+
+
+        # If `currentSubtitle` is `None` or the current time is not within the start and end times of `currentSubtitle`
+        if sortedSubtitles is not None:
+            currentTime = frameNumber / fps
+            if currentSubtitle is None or not (float(currentSubtitle[1][0]) <= currentTime <= float(currentSubtitle[1][1])):
+                # Find the next subtitle whose start time is less than or equal to the current time and whose end time is greater than the current time
+                for subtitle, times in sortedSubtitles:
+                    if float(times[0]) <= currentTime <= float(times[1]):
+                        currentSubtitle = (subtitle, times)
+                        break
+
+            # If `currentSubtitle` is not `None`, display it on the video
+            if currentSubtitle is not None:
+                img = cv2.putText(img, currentSubtitle[0], (0, int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))-30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 100, 255), 2, cv2.LINE_AA)
 
         # Convert to B&W
         if color == "n":
@@ -204,6 +279,7 @@ if __name__ == "__main__":
         # Print the immediate fps
         fpsEndTime = time.time()
         extraInfo += f"| Current FPS: {str(round(1/(fpsEndTime-fpsStartTime),1))} "
+        lastFps = round(1/(fpsEndTime-fpsStartTime),1)
         
         
         while len(extraInfo)-8 < width+2: 
