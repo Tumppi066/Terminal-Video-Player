@@ -52,12 +52,12 @@ if __name__ == "__main__":
         return subtitles
 
     # Check if a subtitle file exists
-    subtitlePath = videoPath.split(".")[0] + ".srt"
-    if os.path.isfile(subtitlePath):
-        # Read the subtitles and store them in a dictionary with their start and end times
-        subtitleDict = parse_subtitles(subtitlePath)
-        for subtitle, times in subtitleDict:
-            print(f"Added subtitle: {subtitle} ({times[0]} - {times[1]}))")
+    # subtitlePath = videoPath.split(".")[0] + ".srt"
+    # if os.path.isfile(subtitlePath):
+    #     # Read the subtitles and store them in a dictionary with their start and end times
+    #     subtitleDict = parse_subtitles(subtitlePath)
+    #     for subtitle, times in subtitleDict:
+    #         print(f"Added subtitle: {subtitle} ({times[0]} - {times[1]}))")
 
     try:
         sortedSubtitles = sorted(subtitleDict, key=lambda x: x[1][0])
@@ -99,22 +99,29 @@ if __name__ == "__main__":
     changedSize = 0
     
     currentSubtitle = None
+    fpsStartTime = time.time()
+    fpsEndTime = 1
+    
+    audioStartTime = 1
+    audioEndTime = 2
+
+    dontLoadNextFrame = 0
+    lastimg = None
+
     while True:
+        lastFpsStartTime = fpsStartTime
         fpsStartTime = time.time()
         fastForwarded = False
 
         # Detect left and right keypresses to skip / revind 5s of the video
         if keyboard.is_pressed("left") and inputTimer + inputPadding < time.time():
-            offset -= 2
+            offset -= 2 / (30/fps)
             fastForwarded = True
 
 
         if keyboard.is_pressed("right") and inputTimer + inputPadding < time.time():
-            offset += 2
+            offset += 2 / (30/fps)
             fastForwarded = True
-
-        # Seek the video and audio to the correct frame
-        video.set(cv2.CAP_PROP_POS_FRAMES, frameNumber)
         
 
         # Detect the up and down keypresses to increase / decrease the width
@@ -135,11 +142,11 @@ if __name__ == "__main__":
             print("Paused" if paused else "Playing")
             
         # If we press esc quit
-        if keyboard.is_pressed("esc"):
+        if keyboard.is_pressed("esc") and inputTimer + inputPadding < time.time():
             break
             
         # Use r to reset back to frame 1 (and pause the video)
-        if keyboard.is_pressed("r"):
+        if keyboard.is_pressed("r") and inputTimer + inputPadding < time.time():
             frameNumber = 1
             offset = 0
             paused = True
@@ -159,18 +166,18 @@ if __name__ == "__main__":
                 player.set_pause(False)
 
         # Read the next video frame and increment the frame number
-        success, img = video.read()
-        audio_frame, val = player.get_frame(force_refresh=True)
-        
-        if val != 'eof' and audio_frame is not None:
-            #audio
-            ffpyplayerImage, t = audio_frame
-        
-        frameNumber += 1
+        if dontLoadNextFrame > 0:
+            dontLoadNextFrame -= 1
+            img = lastimg
+        else:
+            success, img = video.read()
+            lastimg = img
+            frameNumber += 1
         
         if frameNumber == 0:
             frameNumber = 1
 
+        frameNumber = video.get(cv2.CAP_PROP_POS_FRAMES)
         
         # If the video is over, break the loop
         if(success == False): 
@@ -186,8 +193,6 @@ if __name__ == "__main__":
         extraInfo += f"{format(percentage, '.2f')}% | "
         # - Skipped frames
         extraInfo += f"\033[91m{skippedFrames} ({format(round(skippedFrames/frameNumber*100, 2), '.2f')}%) skipped frames\033[97m)"
-        # - FPS
-        extraInfo += f" | Average FPS: {format(round(Fps, 1), '.0f')} "
         # Print the controls
         extraInfo += f" | Use ESC to exit (arrow keys for control) "
         # Merge extra info with
@@ -195,9 +200,17 @@ if __name__ == "__main__":
         
         # Add the FPS to the video 
         if lastFps > fps:
-            img = cv2.putText(img, f"{int(fps)}", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            # Scale it with the video width
+            videoWidth = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+            # Default is 480p so scale based on that
+            aspect = videoWidth/480
+            img = cv2.putText(img, f"{int(fps)}", (0, int(30*aspect)), cv2.FONT_HERSHEY_SIMPLEX, aspect, (0, 255, 0), int(2*aspect))
         else:
-            img = cv2.putText(img, f"{int(lastFps)}", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            # Scale it with the video width
+            videoWidth = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+            # Default is 480p so scale based on that
+            aspect = videoWidth/480
+            img = cv2.putText(img, f"{int(lastFps)}", (0, int(30*aspect)), cv2.FONT_HERSHEY_SIMPLEX, aspect, (0, 0, 255), int(2*aspect))
 
         # Add the video dimensions to the video
         if changedSize > 0:
@@ -275,11 +288,13 @@ if __name__ == "__main__":
         writeTimeEnd = time.time()
         
         # Print the times
-        extraInfo += (f"| Convert time: {format(round(convertTimeEnd - convertTimeStart, 4), '.4f')}s | Write time: {format(round(writeTimeEnd - writeTimeStart, 4), '.4f')}s ")
+        extraInfo += (f"| Convert time: {format(round(convertTimeEnd - convertTimeStart, 4), '.4f')}s | Write time: {format(round(writeTimeEnd - writeTimeStart, 4), '.4f')}s | Audio time: {format(round(audioEndTime - audioStartTime, 4), '.4f')}s ")
         # Print the immediate fps
-        fpsEndTime = time.time()
-        extraInfo += f"| Current FPS: {str(round(1/(fpsEndTime-fpsStartTime),1))} "
-        lastFps = round(1/(fpsEndTime-fpsStartTime),1)
+        try:
+            extraInfo += f"| Current FPS: {str(round(1/(fpsEndTime-lastFpsStartTime),1))} "
+            lastFps = round(1/(fpsEndTime-lastFpsStartTime),1)
+        except:
+            pass
         
         
         while len(extraInfo)-8 < width+2: 
@@ -291,10 +306,21 @@ if __name__ == "__main__":
         sys.stdout.write("\033[0;0H")
         sys.stdout.write(extraInfo + "\n")
 
+        audioStartTime = time.time()
+        audio_frame, val = player.get_frame(force_refresh=True, show=True)
+        
+        if val != 'eof' and audio_frame is not None:
+            #audio
+            ffpyplayerImage, t = audio_frame
+
         try:
             img, t = audio_frame
         except:
             continue
+        
+        # Calculate the frame we should be at based on the current audio time
+        frameWeShouldBeAt = round((t+offset) * fps)
+        difference = frameWeShouldBeAt - frameNumber
         
         # Seek the audio player to the correct frame (it takes input as seconds so we need to convert it)
         if fastForwarded:
@@ -302,10 +328,6 @@ if __name__ == "__main__":
             player.seek(secondWeShouldBeAt, relative=False, accurate=True) 
             offset = 0
             fastForwarded = False
-        
-        # Calculate the frame we should be at based on the current audio time
-        frameWeShouldBeAt = round((t) * fps)
-        difference = frameWeShouldBeAt - frameNumber
         
         # If the difference is greater than 0, then we need to skip frames
         while difference > 0:
@@ -316,22 +338,22 @@ if __name__ == "__main__":
             # Increment the skipped frames
             if not fastForwarded:
                 skippedFrames += 1
+            # Read the next video frame
+            success, img = video.read()
+            # If the video is over, break the loop
+            if(success == False): 
+                os.system("cls" if os.name == "nt" else "clear")
+                print("> Video file not found / video ended")
+                break
             
-        while difference < 0:
-            # Increment the frame number
+        if difference < 0:
+            # Decrement the frame number
             frameNumber -= 1
             # Decrement the difference
             difference += 1
-
-
-        # Calculate the fps
-        if time.time() - lastSecondTime > 0.2:
-            lastSecondFPSs.append(framesLastSecond * 5)
-            lastSecondFPSs.pop(0)
-            framesLastSecond = 0
-            lastSecondTime = time.time()
-            Fps = sum(lastSecondFPSs) / len(lastSecondFPSs)
-        else:
-            framesLastSecond += 1
+            # Don't load the next frame to slow down the video
+            dontLoadNextFrame += 1
+            
         
-        cv2.waitKey(1)
+        audioEndTime = time.time()
+        fpsEndTime = time.time()
