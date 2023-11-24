@@ -14,15 +14,113 @@ if __name__ == "__main__":
     import threading
 
     # Ask the user for the video file name, fps and width
-    videoPath, fps, width, style, show, useTraditional, color = menu.Information()
+    # videoPath, fps, width, style, show, useTraditional, color = menu.Information()
+    
+    # Get all videos in the current directory
+    videos = [f for f in os.listdir('.') if os.path.isfile(f) and ".mp4" in f]
+    selectedFile = 0
+    while True:
+        os.system("cls" if os.name == "nt" else "clear")
+        print("Please select a video file")
+        for i in range(len(videos)):
+            if i == selectedFile:
+                print(f"> {videos[i]}")
+            else:
+                print(f"  {videos[i]}")
+        
+        if keyboard.is_pressed("up"):
+            selectedFile -= 1
+        elif keyboard.is_pressed("down"):
+            selectedFile += 1
+        elif keyboard.is_pressed("enter"):
+            break
+        elif keyboard.is_pressed("esc"):
+            exit()
+        
+        if selectedFile < 0:
+            selectedFile = 0
+        elif selectedFile > len(videos)-1:
+            selectedFile = len(videos)-1
+            
+        time.sleep(0.05)
+        
+    time.sleep(0.2)
+    videoPath = videos[selectedFile]
+    
+    # Read the video fps and width
+    video = cv2.VideoCapture(videoPath)
+    fps = video.get(cv2.CAP_PROP_FPS)
+    width, height = int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    video.release()
+    
+    # Calculate the width we want for the terminal
+    aspect = height/width
+    height = os.get_terminal_size().lines - 3
+    width = int(height*aspect*2*1.75)
+    
+    # Ask the user if they want to use color
+    colorChoices = ["Yes", "No"]
+    colorChoice = 0
+    while True:
+        os.system("cls" if os.name == "nt" else "clear")
+        print("Do you want to use color?")
+        for i in range(len(colorChoices)):
+            if i == colorChoice:
+                print(f"> {colorChoices[i]}")
+            else:
+                print(f"  {colorChoices[i]}")
+        
+        if keyboard.is_pressed("up"):
+            colorChoice -= 1
+        elif keyboard.is_pressed("down"):
+            colorChoice += 1
+        elif keyboard.is_pressed("enter"):
+            break
+        elif keyboard.is_pressed("esc"):
+            exit()
+        
+        if colorChoice < 0:
+            colorChoice = 0
+        elif colorChoice > len(colorChoices)-1:
+            colorChoice = len(colorChoices)-1
+    
+        time.sleep(0.05)
+    
+    time.sleep(0.2)
+    color = colorChoices[colorChoice]
+    color = True if color == "Yes" else False
+    
+    # Ask the user if they want to use traditional ascii characters
+    useTraditionalChoices = ["No", "Yes"]
+    useTraditionalChoice = 0
+    while True:
+        os.system("cls" if os.name == "nt" else "clear")
+        print("Do you want to use traditional ascii characters?")
+        for i in range(len(useTraditionalChoices)):
+            if i == useTraditionalChoice:
+                print(f"> {useTraditionalChoices[i]}")
+            else:
+                print(f"  {useTraditionalChoices[i]}")
 
+        if keyboard.is_pressed("up"):
+            useTraditionalChoice -= 1
+        elif keyboard.is_pressed("down"):
+            useTraditionalChoice += 1
+        elif keyboard.is_pressed("enter"):
+            break
+        elif keyboard.is_pressed("esc"):
+            exit()
+        
+        if useTraditionalChoice < 0:
+            useTraditionalChoice = 0
+        elif useTraditionalChoice > len(useTraditionalChoices)-1:
+            useTraditionalChoice = len(useTraditionalChoices)-1
 
-    # If the style is custom, parse the characters
-    if ";" in style:
-        onPixel = style.split(";")[0]
-        offPixel = style.split(";")[1]
-        style = "custom"
-
+        time.sleep(0.05)
+            
+    time.sleep(0.2)
+    useTraditional = useTraditionalChoices[useTraditionalChoice]
+    useTraditional = True if useTraditional == "Yes" else False
 
     def parse_subtitles(filename):
         with open(filename, 'r', encoding="utf-8") as f:
@@ -108,6 +206,8 @@ if __name__ == "__main__":
     dontLoadNextFrame = 0
     lastimg = None
 
+    
+    lastTerminalSize = os.get_terminal_size()
     while True:
         lastFpsStartTime = fpsStartTime
         fpsStartTime = time.time()
@@ -123,17 +223,32 @@ if __name__ == "__main__":
             offset += 2 / (30/fps)
             fastForwarded = True
         
+        # Autodetect terminal size and set the width to that
+        if keyboard.is_pressed("a") and inputTimer + inputPadding < time.time() or os.get_terminal_size() != lastTerminalSize:
+            height = os.get_terminal_size().lines - 3
+            # Use the video aspect ratio to calculate the width
+            videoWidth, videoHeight = int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            aspect = videoHeight/videoWidth
+            width = int(height*aspect*2*1.75)
+            changedSize = 2
+            inputTimer = time.time()
+            os.system("cls" if os.name == "nt" else "clear")
+            lastTerminalSize = os.get_terminal_size()
 
         # Detect the up and down keypresses to increase / decrease the width
         if keyboard.is_pressed("up") and inputTimer + inputPadding < time.time():
             width += 5
             changedSize = 2
             inputTimer = time.time()
+            os.system("cls" if os.name == "nt" else "clear")
+            lastTerminalSize = os.get_terminal_size()
             
         if keyboard.is_pressed("down") and inputTimer + inputPadding < time.time():
             width -= 5
             changedSize = 2
             inputTimer = time.time()
+            os.system("cls" if os.name == "nt" else "clear")
+            lastTerminalSize = os.get_terminal_size()
             
         # Detect the space keypress to pause / play the video
         if keyboard.is_pressed("space") and inputTimer + inputPadding < time.time():
@@ -173,9 +288,6 @@ if __name__ == "__main__":
             success, img = video.read()
             lastimg = img
             frameNumber += 1
-        
-        if frameNumber == 0:
-            frameNumber = 1
 
         frameNumber = video.get(cv2.CAP_PROP_POS_FRAMES)
         
@@ -238,19 +350,15 @@ if __name__ == "__main__":
                 img = cv2.putText(img, currentSubtitle[0], (0, int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))-30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 100, 255), 2, cv2.LINE_AA)
 
         # Convert to B&W
-        if color == "n":
+        if not color:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            if(show == "y"):
-                cv2.imshow("Video", img)
         else:
-            if(show == "y"):
-                cv2.imshow("Video", img)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             
         
         # Convert the current video frame to ASCII
         convertTimeStart = time.time()
-        if color == "y":
+        if color:
             img = convertToAscii(img, percentage, width, color=True)
         else:
             img = convertToAscii(img, percentage, width)
