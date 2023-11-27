@@ -57,12 +57,12 @@ if __name__ == "__main__":
     # Check what width the video can run at 
     terminal_size = shutil.get_terminal_size(fallback=(120, 50))
     termWidth = terminal_size.columns
-    termHeight = terminal_size.lines
+    termHeight = terminal_size.lines-3
     newWidth = videoWidth
     newHeight = videoHeight
     # Now lower the width until it fits in the terminal
     while True:
-        if newWidth > termWidth or newHeight > termHeight:
+        if newWidth > termWidth or newHeight/2 > termHeight:
             newWidth -= 1
             newHeight = int(newWidth/videoWidth*videoHeight)
         else:
@@ -133,6 +133,37 @@ if __name__ == "__main__":
     time.sleep(0.2)
     useTraditional = useTraditionalChoices[useTraditionalChoice]
     useTraditional = True if useTraditional == "Yes" else False
+    
+    enableSubtitlesChoices = ["No", "Yes"]
+    enableSubtitlesChoice = 0
+    while True:
+        os.system("cls" if os.name == "nt" else "clear")
+        print("Do you want to enable subtitles?")
+        for i in range(len(enableSubtitlesChoices)):
+            if i == enableSubtitlesChoice:
+                print(f"> {enableSubtitlesChoices[i]}")
+            else:
+                print(f"  {enableSubtitlesChoices[i]}")
+
+        if keyboard.is_pressed("up"):
+            enableSubtitlesChoice -= 1
+        elif keyboard.is_pressed("down"):
+            enableSubtitlesChoice += 1
+        elif keyboard.is_pressed("enter"):
+            break
+        elif keyboard.is_pressed("esc"):
+            exit()
+        
+        if enableSubtitlesChoice < 0:
+            enableSubtitlesChoice = 0
+        elif enableSubtitlesChoice > len(enableSubtitlesChoices)-1:
+            enableSubtitlesChoice = len(enableSubtitlesChoices)-1
+
+        time.sleep(0.05)
+    
+    time.sleep(0.2)
+    enableSubtitles = enableSubtitlesChoices[enableSubtitlesChoice]
+    enableSubtitles = True if enableSubtitles == "Yes" else False
 
     def parse_subtitles(filename):
         with open(filename, 'r', encoding="utf-8") as f:
@@ -162,12 +193,12 @@ if __name__ == "__main__":
         return subtitles
 
     # Check if a subtitle file exists
-    # subtitlePath = videoPath.split(".")[0] + ".srt"
-    # if os.path.isfile(subtitlePath):
-    #     # Read the subtitles and store them in a dictionary with their start and end times
-    #     subtitleDict = parse_subtitles(subtitlePath)
-    #     for subtitle, times in subtitleDict:
-    #         print(f"Added subtitle: {subtitle} ({times[0]} - {times[1]}))")
+    subtitlePath = videoPath.split(".")[0] + ".srt"
+    if os.path.isfile(subtitlePath):
+        # Read the subtitles and store them in a dictionary with their start and end times
+        subtitleDict = parse_subtitles(subtitlePath)
+        for subtitle, times in subtitleDict:
+            print(f"Added subtitle: {subtitle} ({times[0]} - {times[1]}))")
 
     try:
         sortedSubtitles = sorted(subtitleDict, key=lambda x: x[1][0])
@@ -220,6 +251,8 @@ if __name__ == "__main__":
 
     
     lastTerminalSize = shutil.get_terminal_size(fallback=(120, 50))
+    
+    enableStats = True
     while True:
         lastFpsStartTime = fpsStartTime
         fpsStartTime = time.time()
@@ -239,20 +272,20 @@ if __name__ == "__main__":
         if keyboard.is_pressed("a") and inputTimer + inputPadding < time.time() or shutil.get_terminal_size() != lastTerminalSize:
             # Do the same calculation as above at startup
             termWidth = shutil.get_terminal_size().columns
-            termHeight = shutil.get_terminal_size().lines
+            if enableStats:
+                termHeight = shutil.get_terminal_size().lines-3
+            else:
+                termHeight = shutil.get_terminal_size().lines
             newWidth = videoWidth
             newHeight = videoHeight
             # Now lower the width until it fits in the terminal
             while True:
-                if newWidth > termWidth or newHeight > termHeight:
+                if newWidth > termWidth or newHeight/2 > termHeight:
                     newWidth -= 1
                     newHeight = int(newWidth/videoWidth*videoHeight)
                 else:
                     break
-            
-            print(f"Terminal size: {termWidth}x{termHeight}")
-            print(f"Autodetected size: {newWidth}x{newHeight} ({round((newWidth/videoWidth)*100, 1)}x{round((newHeight/videoHeight)*100, 1)}%)")
-            input()
+
             width = newWidth
             changedSize = 2
             inputTimer = time.time()
@@ -289,6 +322,13 @@ if __name__ == "__main__":
             frameNumber = 1
             offset = 0
             paused = True
+            inputTimer = time.time()
+            
+        if keyboard.is_pressed("s") and inputTimer + inputPadding < time.time():
+            enableStats = not enableStats
+            inputTimer = time.time()
+            # Set lastTerminalSize to random since we want to update the size
+            lastTerminalSize = (0,0)
             
         if paused:
             # Lower the offset to compensate for the time we are paused
@@ -358,13 +398,13 @@ if __name__ == "__main__":
             aspect = videoHeight/videoWidth
             newHeight = int(width/aspect/2)
             newWidth = int(width)
-            img = cv2.putText(img, f"{newWidth}x{newHeight} ({round((newWidth/videoWidth)*100, 1)}x{round((newHeight/videoHeight)*100, 1)}%)", (0, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 100, 255), 2)
+            img = cv2.putText(img, f"{newWidth}x{newHeight} ({round((newWidth/videoWidth)*100, 1)}x{round((newHeight/videoHeight)*100, 1)}%)", (0, int(60*aspect)), cv2.FONT_HERSHEY_SIMPLEX, aspect, (0, 100, 255), int(2*aspect))
             # Reduce the changedSize variable according to the framerate
             changedSize -= 1/fps
 
 
         # If `currentSubtitle` is `None` or the current time is not within the start and end times of `currentSubtitle`
-        if sortedSubtitles is not None:
+        if sortedSubtitles is not None and enableSubtitles:
             currentTime = frameNumber / fps
             if currentSubtitle is None or not (float(currentSubtitle[1][0]) <= currentTime <= float(currentSubtitle[1][1])):
                 # Find the next subtitle whose start time is less than or equal to the current time and whose end time is greater than the current time
@@ -387,16 +427,17 @@ if __name__ == "__main__":
         # Convert the current video frame to ASCII
         convertTimeStart = time.time()
         if color:
-            img = convertToAscii(img, percentage, width, color=True)
+            img = convertToAscii(img, percentage, width, color=True, stats=enableStats)
         else:
-            img = convertToAscii(img, percentage, width)
+            img = convertToAscii(img, percentage, width, stats=enableStats)
         convertTimeEnd = time.time()
         
         writeTimeStart = time.time()
         # Clear the console and print the current frame
         if lastFrame is None:
             sys.stdout.write("\033[0;0H")
-            sys.stdout.write(extraInfo + "\n")
+            if enableStats:
+                sys.stdout.write(extraInfo + "\n")
             sys.stdout.write(f"{img}")
             lastFrame = img.split("\n")
         else:
@@ -439,8 +480,9 @@ if __name__ == "__main__":
         if "─" in extraInfo:
             extraInfo += "┐"
 
-        sys.stdout.write("\033[0;0H")
-        sys.stdout.write(extraInfo + "\n")
+        if enableStats:
+            sys.stdout.write("\033[0;0H")
+            sys.stdout.write(extraInfo + "\n")
 
         audioStartTime = time.time()
         audio_frame, val = player.get_frame(force_refresh=True, show=True)

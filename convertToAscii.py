@@ -29,7 +29,7 @@ for r in range(256):
 
 
 # This function will convert a PIL frame to ascii text
-def convertToAscii(image, percentage, cols=120, color=False):
+def convertToAscii(image, percentage, cols=120, color=False, stats=True):
     localValues = asciiValues
     localPixelIndices = pixelIndexes
 
@@ -54,45 +54,45 @@ def convertToAscii(image, percentage, cols=120, color=False):
         ascii_chars = np.array(list(asciiValues))[indices]  # Map indices to ASCII characters
         asciiImage = [''.join(ascii_chars[i:i+cols]) for i in range(0, len(ascii_chars), cols)]
 
-        return "\n".join(asciiImage)
-    
-
-    colorImage = colorPixels[image[..., 0], image[..., 1], image[..., 2]]
-
-    asciiImage = []
-    lastColor = None
-    for row in colorImage:
-        line = ""
-        for color in row:
-            if color != lastColor:
-                line += "\x1b[0m" + color
-                lastColor = color
-            else:
-                line += "█"
-        asciiImage.append(line + "\n")
-
-    asciiImage = ''.join(asciiImage)
-    asciiImage += "\x1b[38;5;28m" + "└" + "\x1b[0m"
-    
-    wasUnder = False
-    count = 0
-    for x in range(height-1):
-        framePercentage = (x / height) * 100
-        if framePercentage < percentage:
-            asciiImage += "\x1b[38;5;28m" + "─" + "\x1b[0m"
-            wasUnder = True
-            count += 1
-        elif wasUnder:
-            asciiImage += "\x1b[38;5;28m" + "┬" + "\x1b[0m"
-            wasUnder = False
-        else:
-            asciiImage += "─"
-
-    if percentage > 99:
-        asciiImage += "\x1b[38;5;28m" + "┤" + "\x1b[0m"
+        asciiImage = "\n".join(asciiImage)
     else:
-        asciiImage += "┘"
+        colorImage = colorPixels[image[..., 0], image[..., 1], image[..., 2]]
+
+        asciiImage = []
+        lastColor = None
+        for row in colorImage:
+            line = ""
+            for color in row:
+                if color != lastColor:
+                    line += "\x1b[0m" + color
+                    lastColor = color
+                else:
+                    line += "█"
+            asciiImage.append(line + "\n")
+
+        asciiImage = ''.join(asciiImage)
+        asciiImage += "\x1b[38;5;28m" + "└" + "\x1b[0m"
     
-    asciiImage += "\n\x1b[38;5;28m" + " " * (count - 1) + format(percentage, ".2f") + "%\x1b[0m"
+    if stats:
+        wasUnder = False
+        count = 0
+        for x in range(height-1):
+            framePercentage = (x / height) * 100
+            if framePercentage < percentage:
+                asciiImage += "\x1b[38;5;28m" + "─" + "\x1b[0m"
+                wasUnder = True
+                count += 1
+            elif wasUnder:
+                asciiImage += "\x1b[38;5;28m" + "┬" + "\x1b[0m"
+                wasUnder = False
+            else:
+                asciiImage += "─"
+
+        if percentage > 99:
+            asciiImage += "\x1b[38;5;28m" + "┤" + "\x1b[0m"
+        else:
+            asciiImage += "┘"
+        
+        asciiImage += "\n\x1b[38;5;28m" + " " * (count - 1) + format(percentage, ".2f") + "%\x1b[0m"
 
     return asciiImage
