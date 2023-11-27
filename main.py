@@ -12,6 +12,7 @@ if __name__ == "__main__":
     import difflib
     from ffpyplayer.player import MediaPlayer
     import threading
+    import shutil
 
     # Ask the user for the video file name, fps and width
     # videoPath, fps, width, style, show, useTraditional, color = menu.Information()
@@ -50,13 +51,24 @@ if __name__ == "__main__":
     # Read the video fps and width
     video = cv2.VideoCapture(videoPath)
     fps = video.get(cv2.CAP_PROP_FPS)
-    width, height = int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    videoWidth, videoHeight = int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
     video.release()
+
+    # Check what width the video can run at 
+    terminal_size = shutil.get_terminal_size(fallback=(120, 50))
+    termWidth = terminal_size.columns
+    termHeight = terminal_size.lines
+    newWidth = videoWidth
+    newHeight = videoHeight
+    # Now lower the width until it fits in the terminal
+    while True:
+        if newWidth > termWidth or newHeight > termHeight:
+            newWidth -= 1
+            newHeight = int(newWidth/videoWidth*videoHeight)
+        else:
+            break
     
-    # Calculate the width we want for the terminal
-    aspect = height/width
-    height = os.get_terminal_size().lines - 3
-    width = int(height*aspect*2*1.75)
+    width = newWidth
     
     # Ask the user if they want to use color
     colorChoices = ["Yes", "No"]
@@ -207,7 +219,7 @@ if __name__ == "__main__":
     lastimg = None
 
     
-    lastTerminalSize = os.get_terminal_size()
+    lastTerminalSize = shutil.get_terminal_size(fallback=(120, 50))
     while True:
         lastFpsStartTime = fpsStartTime
         fpsStartTime = time.time()
@@ -224,16 +236,28 @@ if __name__ == "__main__":
             fastForwarded = True
         
         # Autodetect terminal size and set the width to that
-        if keyboard.is_pressed("a") and inputTimer + inputPadding < time.time() or os.get_terminal_size() != lastTerminalSize:
-            height = os.get_terminal_size().lines - 3
-            # Use the video aspect ratio to calculate the width
-            videoWidth, videoHeight = int(video.get(cv2.CAP_PROP_FRAME_WIDTH)), int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            aspect = videoHeight/videoWidth
-            width = int(height*aspect*2*1.75)
+        if keyboard.is_pressed("a") and inputTimer + inputPadding < time.time() or shutil.get_terminal_size() != lastTerminalSize:
+            # Do the same calculation as above at startup
+            termWidth = shutil.get_terminal_size().columns
+            termHeight = shutil.get_terminal_size().lines
+            newWidth = videoWidth
+            newHeight = videoHeight
+            # Now lower the width until it fits in the terminal
+            while True:
+                if newWidth > termWidth or newHeight > termHeight:
+                    newWidth -= 1
+                    newHeight = int(newWidth/videoWidth*videoHeight)
+                else:
+                    break
+            
+            print(f"Terminal size: {termWidth}x{termHeight}")
+            print(f"Autodetected size: {newWidth}x{newHeight} ({round((newWidth/videoWidth)*100, 1)}x{round((newHeight/videoHeight)*100, 1)}%)")
+            input()
+            width = newWidth
             changedSize = 2
             inputTimer = time.time()
             os.system("cls" if os.name == "nt" else "clear")
-            lastTerminalSize = os.get_terminal_size()
+            lastTerminalSize = shutil.get_terminal_size()
 
         # Detect the up and down keypresses to increase / decrease the width
         if keyboard.is_pressed("up") and inputTimer + inputPadding < time.time():
@@ -241,14 +265,14 @@ if __name__ == "__main__":
             changedSize = 2
             inputTimer = time.time()
             os.system("cls" if os.name == "nt" else "clear")
-            lastTerminalSize = os.get_terminal_size()
+            lastTerminalSize = shutil.get_terminal_size()
             
         if keyboard.is_pressed("down") and inputTimer + inputPadding < time.time():
             width -= 5
             changedSize = 2
             inputTimer = time.time()
             os.system("cls" if os.name == "nt" else "clear")
-            lastTerminalSize = os.get_terminal_size()
+            lastTerminalSize = shutil.get_terminal_size()
             
         # Detect the space keypress to pause / play the video
         if keyboard.is_pressed("space") and inputTimer + inputPadding < time.time():
@@ -322,7 +346,11 @@ if __name__ == "__main__":
             videoWidth = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
             # Default is 480p so scale based on that
             aspect = videoWidth/480
-            img = cv2.putText(img, f"{int(lastFps)}", (0, int(30*aspect)), cv2.FONT_HERSHEY_SIMPLEX, aspect, (0, 0, 255), int(2*aspect))
+            # Smoothly lerp between red (1/2fps) and green (fps)
+            R = (0,0,255)
+            G = (0,255,0)
+            fpsColor = (int(R[0] + (G[0]-R[0]) * (lastFps/fps)), int(R[1] + (G[1]-R[1]) * (lastFps/fps)), int(R[2] + (G[2]-R[2]) * (lastFps/fps)))
+            img = cv2.putText(img, f"{int(lastFps)}", (0, int(30*aspect)), cv2.FONT_HERSHEY_SIMPLEX, aspect, fpsColor, int(2*aspect))
 
         # Add the video dimensions to the video
         if changedSize > 0:
@@ -436,6 +464,8 @@ if __name__ == "__main__":
             player.seek(secondWeShouldBeAt, relative=False, accurate=True) 
             offset = 0
             fastForwarded = False
+            # Seek the video to the correct frame
+            video.set(cv2.CAP_PROP_POS_FRAMES, frameWeShouldBeAt)
         
         # If the difference is greater than 0, then we need to skip frames
         while difference > 0:
