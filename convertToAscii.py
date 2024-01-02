@@ -26,6 +26,7 @@ for r in range(256):
     for g in range(256):
         for b in range(256):
             colorPixels[r, g, b] = f"\x1b[38;2;{r};{g};{b}m█"
+    print(f"- {r}/255", end="\r")
 
 
 # This function will convert a PIL frame to ascii text
@@ -53,8 +54,8 @@ def convertToAscii(image, percentage, cols=120, color=False, stats=True):
         indices = np.round(image.flatten() / 255 * (asciiLen - 1)).astype(int)
         ascii_chars = np.array(list(asciiValues))[indices]  # Map indices to ASCII characters
         asciiImage = [''.join(ascii_chars[i:i+cols]) for i in range(0, len(ascii_chars), cols)]
-
         asciiImage = "\n".join(asciiImage)
+        asciiImage = asciiImage + "\n\x1b[38;5;28m" + "└" + "\x1b[0m"
     else:
         colorImage = colorPixels[image[..., 0], image[..., 1], image[..., 2]]
 
@@ -63,11 +64,14 @@ def convertToAscii(image, percentage, cols=120, color=False, stats=True):
         for row in colorImage:
             line = ""
             for color in row:
+                # The if statement is not exactly the best for performance, but it will lower the write
+                # write times so much that it's worth it. (Well at least for some videos)
                 if color != lastColor:
                     line += "\x1b[0m" + color
                     lastColor = color
                 else:
                     line += "█"
+                    
             asciiImage.append(line + "\n")
 
         asciiImage = ''.join(asciiImage)

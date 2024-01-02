@@ -14,8 +14,6 @@ if __name__ == "__main__":
     import threading
     import shutil
 
-    # Ask the user for the video file name, fps and width
-    # videoPath, fps, width, style, show, useTraditional, color = menu.Information()
     
     # Get all videos in the current directory
     videos = [f for f in os.listdir('.') if os.path.isfile(f) and ".mp4" in f]
